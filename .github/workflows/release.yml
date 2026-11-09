@@ -67,11 +67,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-24.04,     target: x86_64-unknown-linux-gnu, ext: tar.gz }
-          - { runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, ext: tar.gz }
-          - { runner: windows-2022,     target: x86_64-pc-windows-msvc, ext: tar.gz }
-          - { runner: macos-15-intel,   target: x86_64-apple-darwin, ext: tar.gz }
-          - { runner: macos-latest,     target: aarch64-apple-darwin, ext: tar.gz }
+          - { runner: ubuntu-24.04,     target: x86_64-unknown-linux-gnu, host: tar.gz }
+          - { runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, host: tar.gz }
+          - { runner: windows-2022,     target: x86_64-pc-windows-msvc, host: zip }
+          - { runner: macos-15-intel,   target: x86_64-apple-darwin, host: tar.gz }
+          - { runner: macos-latest,     target: aarch64-apple-darwin, host: tar.gz }
     defaults:
       run:
         shell: bash
@@ -83,9 +83,9 @@ jobs:
         run: |
           # ubuntu-24.04: the published rpi needs GLIBC_2.39.
           mkdir -p "$RUNNER_TEMP/host"
-          gh release download "$RPI_TAG" --repo "$RPI_REPO" --pattern "rpi-$RPI_TAG-${{ matrix.target }}.${{ matrix.ext }}" --dir "$RUNNER_TEMP/host" --clobber
+          gh release download "$RPI_TAG" --repo "$RPI_REPO" --pattern "rpi-$RPI_TAG-${{ matrix.target }}.${{ matrix.host }}" --dir "$RUNNER_TEMP/host" --clobber
           cd "$RUNNER_TEMP/host"
-          if [ "${{ matrix.ext }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
+          if [ "${{ matrix.host }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
           echo "$RUNNER_TEMP/host" >> "$GITHUB_PATH"
 
       - name: Load the published library in the real host
@@ -101,7 +101,7 @@ jobs:
           # Smoke the bytes users get, before the manifest exists: load the archive's library directly.
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "rpi-adhd-$version-${{ matrix.target }}.*" --dir "$RUNNER_TEMP/pkg" --clobber
           cd "$RUNNER_TEMP/pkg"
-          if [ "${{ matrix.ext }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
+          tar -xzf *.tar.gz
           cp ./*.so ./*.dylib ./*.dll "$ext_dir/" 2>/dev/null || true
           ls "$ext_dir"
           rpi --version
