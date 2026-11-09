@@ -57,7 +57,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}"
+          # Five runners race to create the same release; a 422 from losing the race is
+          # fine as long as the release ends up existing.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}" \
+            || gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
           gh release upload "$TAG" dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
   smoke:
