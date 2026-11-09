@@ -39,7 +39,7 @@ jobs:
         id: meta
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-          sdk="$(sed -nE 's/^rpi-plugin-sdk = "(.*)".*/\1/p' Cargo.toml)"
+          sdk="$(grep -A1 'name = "rpi-plugin-sdk"' Cargo.lock | sed -nE 's/^version = "(.*)"/\1/p')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
           echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
@@ -85,7 +85,7 @@ jobs:
         id: meta
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-          sdk="$(sed -nE 's/^rpi-plugin-sdk = "(.*)".*/\1/p' Cargo.toml)"
+          sdk="$(grep -A1 'name = "rpi-plugin-sdk"' Cargo.lock | sed -nE 's/^version = "(.*)"/\1/p')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
           echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
