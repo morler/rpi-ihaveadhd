@@ -1,0 +1,104 @@
+name: release
+
+on:
+  push:
+    tags: ["rpi-adhd-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04,     target: x86_64-unknown-linux-gnu }
+          - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { runner: windows-2022,     target: x86_64-pc-windows-msvc }
+          - { runner: macos-15-intel,   target: x86_64-apple-darwin }
+          - { runner: macos-14,         target: aarch64-apple-darwin }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Read version and tag
+        id: meta
+        run: |
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          sdk="$(sed -nE 's/^rpi-plugin-sdk = "(.*)".*/\1/p' Cargo.toml)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
+          echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Test and build
+        run: |
+          cargo test --locked
+          cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Stage archive
+        run: bash scripts/pack.sh ${{ matrix.target }} ${{ steps.meta.outputs.version }}
+
+      - name: Upload archive
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}"
+          gh release upload "$TAG" dist/*.tar.gz dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/rpi-adhd-*
+          if-no-files-found: error
+
+  manifest:
+    needs: release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: staged
+          merge-multiple: true
+
+      - name: Read version and tag
+        id: meta
+        run: |
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          sdk="$(sed -nE 's/^rpi-plugin-sdk = "(.*)".*/\1/p' Cargo.toml)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
+          echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and check manifest
+        run: |
+          python3 scripts/manifest.py staged "${{ steps.meta.outputs.version }}" "https://github.com/$GITHUB_REPOSITORY" "${{ steps.meta.outputs.tag }}" "${{ steps.meta.outputs.commit }}" "${{ steps.meta.outputs.sdk }}" 4
+          cp staged/rpi-extension.json dist-manifest.json
+          python3 scripts/check_manifest.py dist-manifest.json
+
+      - name: Upload manifest last
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: gh release upload "$TAG" dist-manifest.json --repo "$GITHUB_REPOSITORY" --clobber

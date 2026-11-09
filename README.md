@@ -6,7 +6,16 @@
 
 ## 安装
 
-要求 rpi 0.21+。先克隆，再在目标项目目录里 link：
+要求 rpi 0.21+。预编译包从 GitHub Release 下载（不经 crates.io，所以必须带上 `--github`）：
+
+```sh
+rpi install rpi-adhd --github morler/rpi-adhd --version 0.1.0
+```
+
+支持 `x86_64-unknown-linux-gnu`、`aarch64-unknown-linux-gnu`、`x86_64-pc-windows-msvc`、
+`x86_64-apple-darwin`、`aarch64-apple-darwin`。musl 平台不支持，原因见[限制](#限制)。
+
+从源码装（需要 Rust 工具链）：
 
 ```sh
 git clone https://github.com/morler/rpi-adhd.git
@@ -67,6 +76,8 @@ printf '{"id":"1","type":"get_commands"}\n' | rpi --mode rpc --offline --approve
 - 注入走 `register_before_agent_start`，旧宿主缺该槽位时插件加载失败（返回非零），不会静默无效。
 - 配置是全局的（所有项目共用一个开关）；要按项目区分就改用 `RPI_ADHD` 环境变量。
 - 只影响系统提示词，不拦截或改写模型输出。
+- 没有 musl 构建：musl target 不产出 cdylib（`dropping unsupported crate type`），且静态链接的 musl 宿主没有
+  `dlopen`（`Dynamic loading not supported`），插件机制本身就用不了。
 
 ## 隐私
 
