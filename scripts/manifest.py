@@ -8,7 +8,7 @@ import tarfile
 import zipfile
 
 DIST = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "dist")
-NAME = "rpi-adhd"
+NAME = "rpi-ihaveadhd"
 VERSION = sys.argv[2]
 REPO = sys.argv[3]
 TAG = sys.argv[4]

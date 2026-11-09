@@ -21,10 +21,10 @@ fn config_path() -> Option<PathBuf> {
     let home = std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
         .map(PathBuf::from)?;
-    Some(agent_dir(&home, std::env::var_os("RPI_AGENT_DIR").as_deref()).join("rpi-adhd.json"))
+    Some(agent_dir(&home, std::env::var_os("RPI_AGENT_DIR").as_deref()).join("rpi-ihaveadhd.json"))
 }
 
-/// None when RPI_ADHD is unset or unparsable.
+/// None when RPI_IHAVEADHD is unset or unparsable.
 fn switch_value(raw: &str) -> Option<bool> {
     match raw.trim().to_lowercase().as_str() {
         "1" | "on" | "true" => Some(true),
@@ -33,9 +33,9 @@ fn switch_value(raw: &str) -> Option<bool> {
     }
 }
 
-/// None when RPI_ADHD is unset or unparsable.
+/// None when RPI_IHAVEADHD is unset or unparsable.
 fn env_switch() -> Option<bool> {
-    switch_value(&std::env::var("RPI_ADHD").unwrap_or_default())
+    switch_value(&std::env::var("RPI_IHAVEADHD").unwrap_or_default())
 }
 
 fn parse_enabled(content: &str) -> Option<bool> {
@@ -91,7 +91,7 @@ fn saved_message(enabled: bool, env: Option<bool>) -> String {
     let state = if enabled { "on" } else { "off" };
     match env.filter(|env| *env != enabled) {
         Some(env) => format!(
-            "ADHD mode {state} and saved. RPI_ADHD keeps the startup default at {}.",
+            "ADHD mode {state} and saved. RPI_IHAVEADHD keeps the startup default at {}.",
             if env { "on" } else { "off" }
         ),
         None => format!("ADHD mode {state} and saved."),
@@ -99,8 +99,9 @@ fn saved_message(enabled: bool, env: Option<bool>) -> String {
 }
 
 fn save_default(enabled: bool) -> io::Result<String> {
-    let path = config_path()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no rpi-adhd config directory"))?;
+    let path = config_path().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::NotFound, "no rpi-ihaveadhd config directory")
+    })?;
     save_enabled(&path, enabled)?;
     Ok(saved_message(enabled, env_switch()))
 }
@@ -180,7 +181,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("rpi-adhd-{}-{tag}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("rpi-ihaveadhd-{}-{tag}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }
@@ -205,7 +206,7 @@ mod tests {
     #[test]
     fn saves_and_reads_back_keeping_other_keys() {
         let dir = temp_dir("save");
-        let path = dir.join("rpi-adhd.json");
+        let path = dir.join("rpi-ihaveadhd.json");
         save_enabled(&path, true).unwrap();
         assert_eq!(file_enabled(&path), Some(true));
 
@@ -225,7 +226,7 @@ mod tests {
     #[test]
     fn invalid_config_is_reported_and_left_untouched() {
         let dir = temp_dir("invalid");
-        let path = dir.join("rpi-adhd.json");
+        let path = dir.join("rpi-ihaveadhd.json");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         for bad in ["not json", "[1,2]"] {
             std::fs::write(&path, bad).unwrap();
@@ -269,7 +270,7 @@ mod tests {
     #[test]
     fn missing_or_unreadable_config_settles_the_default() {
         let dir = temp_dir("missing");
-        let path = dir.join("rpi-adhd.json");
+        let path = dir.join("rpi-ihaveadhd.json");
         assert_eq!(file_enabled(&path), None);
         // A directory where the config should be: the read fails, the write must too.
         std::fs::create_dir_all(&path).unwrap();
@@ -285,11 +286,9 @@ mod tests {
         assert_eq!(saved_message(true, None), "ADHD mode on and saved.");
         assert_eq!(saved_message(false, None), "ADHD mode off and saved.");
         assert_eq!(saved_message(true, Some(true)), "ADHD mode on and saved.");
-        assert!(
-            saved_message(true, Some(false)).contains("RPI_ADHD keeps the startup default at off")
-        );
-        assert!(
-            saved_message(false, Some(true)).contains("RPI_ADHD keeps the startup default at on")
-        );
+        assert!(saved_message(true, Some(false))
+            .contains("RPI_IHAVEADHD keeps the startup default at off"));
+        assert!(saved_message(false, Some(true))
+            .contains("RPI_IHAVEADHD keeps the startup default at on"));
     }
 }

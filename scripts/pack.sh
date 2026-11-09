@@ -5,7 +5,7 @@ set -euo pipefail
 target="${1:?usage: pack.sh <target-triple> <version>}"
 version="${2:?usage: pack.sh <target-triple> <version>}"
 dist="dist"
-crate="rpi-adhd"
+crate="rpi-ihaveadhd"
 
 lib="$(ls "target/$target/release/"*.so "target/$target/release/"*.dylib "target/$target/release/"*.dll 2>/dev/null | head -1 || true)"
 if [ -z "$lib" ]; then

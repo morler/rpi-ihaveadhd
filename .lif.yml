@@ -2,12 +2,12 @@
 # See: https://github.com/rierek/lif
 project:
     # Human-readable project name (displayed in the UI)
-    name: rpi-adhd
+    name: rpi-ihaveadhd
 lif:
     # Directory where item files are stored
     path: .lif
     # Prefix for item IDs (e.g., "myproject-abc1")
-    prefix: rpi-adhd-
+    prefix: rpi-ihaveadhd-
     # Length of the random ID suffix
     id_length: 4
     # Default status for new items

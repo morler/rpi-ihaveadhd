@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: ["rpi-adhd-v*"]
+    tags: ["rpi-ihaveadhd-v*"]
   workflow_dispatch:
 
 permissions:
@@ -41,7 +41,7 @@ jobs:
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=rpi-ihaveadhd-v$version" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Test and build
@@ -62,7 +62,7 @@ jobs:
           # Draft until the manifest job publishes it: a failed smoke or manifest must never
           # leave a release users can install from.
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}" \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "rpi-ihaveadhd ${{ steps.meta.outputs.version }}" \
             || gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
           gh release upload "$TAG" dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
@@ -101,11 +101,11 @@ jobs:
           OPENAI_API_KEY: sk-smoke
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-          tag="rpi-adhd-v$version"
+          tag="rpi-ihaveadhd-v$version"
           ext_dir="$HOME/.rpi/agent/extensions"
           mkdir -p "$ext_dir" "$RUNNER_TEMP/pkg"
           # Smoke the bytes users get, before the manifest exists: load the archive's library directly.
-          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "rpi-adhd-$version-${{ matrix.target }}.*" --dir "$RUNNER_TEMP/pkg" --clobber
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "rpi-ihaveadhd-$version-${{ matrix.target }}.*" --dir "$RUNNER_TEMP/pkg" --clobber
           cd "$RUNNER_TEMP/pkg"
           tar -xzf *.tar.gz
           cp ./*.so ./*.dylib ./*.dll "$ext_dir/" 2>/dev/null || true
@@ -131,7 +131,7 @@ jobs:
           sdk="$(grep -A1 'name = "rpi-plugin-sdk"' Cargo.lock | sed -nE 's/^version = "(.*)"/\1/p')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
-          echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=rpi-ihaveadhd-v$version" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Download published archives
