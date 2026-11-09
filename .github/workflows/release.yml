@@ -91,6 +91,8 @@ jobs:
       - name: Load the published library in the real host
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A dummy key is enough: the smoke only needs the host to boot, not to call a model.
+          OPENAI_API_KEY: sk-smoke
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
           tag="rpi-adhd-v$version"
