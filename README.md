@@ -1,6 +1,6 @@
 # rpi-adhd
 
-把 [i-have-adhd](https://github.com/ayghri/i-have-adhd) 的 ADHD 友好输出规则带进 [rpi](https://github.com/Particle-AI/rpi)：让 agent 的回复第一行就是下一步动作、多步任务编号、结尾给一个 2 分钟内能开始的动作。
+把 [i-have-adhd](https://github.com/ayghri/i-have-adhd) 的 ADHD 友好输出规则带进 [rpi](https://github.com/earendil-works/rpi)：让 agent 的回复第一行就是下一步动作、多步任务编号、结尾给一个 2 分钟内能开始的动作。
 
 规则本体只有一份：[`src/adhd.md`](src/adhd.md)，编译进二进制（`include_str!`），不需要外部文件。开启时在每次请求前追加到系统提示词，用 `/adhd` 开关。
 
