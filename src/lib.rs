@@ -25,17 +25,17 @@ fn config_path() -> Option<PathBuf> {
 }
 
 /// None when RPI_ADHD is unset or unparsable.
-fn env_switch() -> Option<bool> {
-    match std::env::var("RPI_ADHD")
-        .unwrap_or_default()
-        .trim()
-        .to_lowercase()
-        .as_str()
-    {
+fn switch_value(raw: &str) -> Option<bool> {
+    match raw.trim().to_lowercase().as_str() {
         "1" | "on" | "true" => Some(true),
         "0" | "off" | "false" => Some(false),
         _ => None,
     }
+}
+
+/// None when RPI_ADHD is unset or unparsable.
+fn env_switch() -> Option<bool> {
+    switch_value(&std::env::var("RPI_ADHD").unwrap_or_default())
 }
 
 fn parse_enabled(content: &str) -> Option<bool> {
@@ -87,18 +87,22 @@ fn save_enabled(path: &Path, enabled: bool) -> io::Result<()> {
     })
 }
 
-fn save_default(enabled: bool) -> io::Result<String> {
-    let path = config_path()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no rpi-adhd config directory"))?;
-    save_enabled(&path, enabled)?;
+fn saved_message(enabled: bool, env: Option<bool>) -> String {
     let state = if enabled { "on" } else { "off" };
-    Ok(match env_switch().filter(|env| *env != enabled) {
+    match env.filter(|env| *env != enabled) {
         Some(env) => format!(
             "ADHD mode {state} and saved. RPI_ADHD keeps the startup default at {}.",
             if env { "on" } else { "off" }
         ),
         None => format!("ADHD mode {state} and saved."),
-    })
+    }
+}
+
+fn save_default(enabled: bool) -> io::Result<String> {
+    let path = config_path()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no rpi-adhd config directory"))?;
+    save_enabled(&path, enabled)?;
+    Ok(saved_message(enabled, env_switch()))
 }
 
 /// Returns the next state (when it changes) and the reply text.
@@ -247,6 +251,45 @@ mod tests {
         assert_eq!(
             agent_dir(home, Some(OsStr::new(""))),
             home.join(".rpi/agent")
+        );
+    }
+
+    #[test]
+    fn switch_value_accepts_every_spelling() {
+        for on in ["1", "on", "true", " ON ", "True"] {
+            assert_eq!(switch_value(on), Some(true), "{on}");
+        }
+        for off in ["0", "off", "false", " OFF ", "False"] {
+            assert_eq!(switch_value(off), Some(false), "{off}");
+        }
+        assert_eq!(switch_value(""), None);
+        assert_eq!(switch_value("maybe"), None);
+    }
+
+    #[test]
+    fn missing_or_unreadable_config_settles_the_default() {
+        let dir = temp_dir("missing");
+        let path = dir.join("rpi-adhd.json");
+        assert_eq!(file_enabled(&path), None);
+        // A directory where the config should be: the read fails, the write must too.
+        std::fs::create_dir_all(&path).unwrap();
+        assert_eq!(file_enabled(&path), None);
+        assert!(save_enabled(&path, true).is_err());
+        // Initializes the cached flag; its value depends on this machine's config.
+        let _ = enabled();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn saved_message_names_a_conflicting_env_default() {
+        assert_eq!(saved_message(true, None), "ADHD mode on and saved.");
+        assert_eq!(saved_message(false, None), "ADHD mode off and saved.");
+        assert_eq!(saved_message(true, Some(true)), "ADHD mode on and saved.");
+        assert!(
+            saved_message(true, Some(false)).contains("RPI_ADHD keeps the startup default at off")
+        );
+        assert!(
+            saved_message(false, Some(true)).contains("RPI_ADHD keeps the startup default at on")
         );
     }
 }
