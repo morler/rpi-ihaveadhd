@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-22.04,     target: x86_64-unknown-linux-gnu }
+          - { runner: ubuntu-22.04,   target: x86_64-unknown-linux-gnu }
           - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
-          - { runner: windows-2022,     target: x86_64-pc-windows-msvc }
-          - { runner: macos-15-intel,   target: x86_64-apple-darwin }
-          - { runner: macos-latest,     target: aarch64-apple-darwin }
+          - { runner: windows-2022,   target: x86_64-pc-windows-msvc }
+          - { runner: macos-15-intel, target: x86_64-apple-darwin }
+          - { runner: macos-latest,   target: aarch64-apple-darwin }
     defaults:
       run:
         shell: bash
@@ -28,9 +28,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
@@ -39,9 +36,7 @@ jobs:
         id: meta
         run: |
           version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
-          sdk="$(grep -A1 'name = "rpi-plugin-sdk"' Cargo.lock | sed -nE 's/^version = "(.*)"/\1/p')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sdk=$sdk" >> "$GITHUB_OUTPUT"
           echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -61,12 +56,6 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}"
           gh release upload "$TAG" dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ matrix.target }}
-          path: dist/rpi-adhd-*
-          if-no-files-found: error
-
   manifest:
     needs: release
     runs-on: ubuntu-22.04
@@ -75,11 +64,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: dist-*
-          path: staged
-          merge-multiple: true
 
       - name: Read version and tag
         id: meta
@@ -91,6 +75,18 @@ jobs:
           echo "tag=rpi-adhd-v$version" >> "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Download published archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          mkdir -p staged
+          # curl, not gh release download: that command 500s on these large assets.
+          for f in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[].name | select(endswith(".tar.gz"))'); do
+            curl -sSLf -o "staged/$f" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$f"
+          done
+          ls -l staged
+
       - name: Build and check manifest
         run: |
           python3 scripts/manifest.py staged "${{ steps.meta.outputs.version }}" "https://github.com/$GITHUB_REPOSITORY" "${{ steps.meta.outputs.tag }}" "${{ steps.meta.outputs.commit }}" "${{ steps.meta.outputs.sdk }}" 4
@@ -101,3 +97,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
         run: gh release upload "$TAG" staged/rpi-extension.json --repo "$GITHUB_REPOSITORY" --clobber
+
