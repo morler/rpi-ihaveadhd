@@ -1,0 +1,13 @@
+[package]
+name = "rpi-adhd"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "ADHD 友好的输出规则 for rpi"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rpi-plugin-sdk = "0.21"
+serde_json = "1"
