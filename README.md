@@ -6,6 +6,8 @@
 
 ## 安装
 
+从旧包 `rpi-adhd` 升级过来要手动重装：配置不迁移，文件名和环境变量都跟着改名（`~/.rpi/agent/rpi-ihaveadhd.json`、`RPI_IHAVEADHD`），原来的设置需要重新设一次。
+
 要求 rpi 0.21+。预编译包从 GitHub Release 下载（不经 crates.io，所以必须带上 `--github`）：
 
 ```sh
