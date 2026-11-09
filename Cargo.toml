@@ -3,7 +3,7 @@ name = "rpi-adhd"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "ADHD 友好的输出规则 for rpi"
+description = "ADHD-friendly output rules plugin for rpi"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
