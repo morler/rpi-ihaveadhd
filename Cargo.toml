@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "ADHD-friendly output rules plugin for rpi"
+repository = "https://github.com/morler/rpi-adhd"
+homepage = "https://github.com/morler/rpi-adhd"
+readme = "README.md"
+keywords = ["rpi", "plugin", "adhd", "prompt"]
+categories = ["development-tools"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
