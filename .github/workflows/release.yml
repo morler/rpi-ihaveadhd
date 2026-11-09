@@ -76,6 +76,7 @@ jobs:
       run:
         shell: bash
     steps:
+      - uses: actions/checkout@v4
       - name: Install the rpi host
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
