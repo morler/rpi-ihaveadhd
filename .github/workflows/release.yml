@@ -140,9 +140,9 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
           mkdir -p staged
-          # The release is still a draft, so /releases/tags/ and the public download URL 404:
-          # find it in the list and pull each asset through the API by id.
-          rid="$(gh api 'repos/'"$GITHUB_REPOSITORY"'/releases?per_page=100' --jq '.[] | select(.tag_name == "'"$TAG"'" and .draft) | .id')"
+          # Draft or not, /releases/tags/ is unreliable here, so find the release in the list
+          # and pull each asset through the API by id.
+          rid="$(gh api 'repos/'"$GITHUB_REPOSITORY"'/releases?per_page=100' --jq '.[] | select(.tag_name == "'"$TAG"'") | .id')"
           gh api "repos/$GITHUB_REPOSITORY/releases/$rid" --jq '.assets[] | select(.name | endswith(".tar.gz")) | "\(.id) \(.name)"' \
             | while read -r id f; do gh api "repos/$GITHUB_REPOSITORY/releases/assets/$id" -H 'Accept: application/octet-stream' > "staged/$f"; done
           ls -l staged
