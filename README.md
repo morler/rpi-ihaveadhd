@@ -6,9 +6,11 @@
 
 ## 安装
 
-要求 rpi 0.21+。在目标项目目录执行，路径改成这个仓库的实际位置：
+要求 rpi 0.21+。先克隆，再在目标项目目录里 link：
 
 ```sh
+git clone https://github.com/morler/rpi-adhd.git
+cd /path/to/your-project
 rpi package link --path /path/to/rpi-adhd
 ```
 
