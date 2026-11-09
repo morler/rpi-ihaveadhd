@@ -59,7 +59,7 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}"
-          gh release upload "$TAG" dist/*.tar.gz dist/*.zip --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
       - uses: actions/upload-artifact@v4
         with:
