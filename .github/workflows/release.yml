@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+env:
+  RPI_REPO: bigfish1913/pi-rust
+  RPI_TAG: v0.21.1
+
 jobs:
   release:
     runs-on: ${{ matrix.runner }}
@@ -15,11 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-22.04,   target: x86_64-unknown-linux-gnu }
+          - { runner: ubuntu-22.04,     target: x86_64-unknown-linux-gnu }
           - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
-          - { runner: windows-2022,   target: x86_64-pc-windows-msvc }
-          - { runner: macos-15-intel, target: x86_64-apple-darwin }
-          - { runner: macos-latest,   target: aarch64-apple-darwin }
+          - { runner: windows-2022,     target: x86_64-pc-windows-msvc }
+          - { runner: macos-15-intel,   target: x86_64-apple-darwin }
+          - { runner: macos-latest,     target: aarch64-apple-darwin }
     defaults:
       run:
         shell: bash
@@ -56,8 +60,48 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "rpi-adhd ${{ steps.meta.outputs.version }}"
           gh release upload "$TAG" dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
 
-  manifest:
+  smoke:
     needs: release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04,     target: x86_64-unknown-linux-gnu, ext: tar.gz }
+          - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, ext: tar.gz }
+          - { runner: windows-2022,     target: x86_64-pc-windows-msvc, ext: zip }
+          - { runner: macos-15-intel,   target: x86_64-apple-darwin, ext: tar.gz }
+          - { runner: macos-latest,     target: aarch64-apple-darwin, ext: tar.gz }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the rpi host
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/host"
+          gh release download "$RPI_TAG" --repo "$RPI_REPO" \
+            --pattern "rpi-$RPI_TAG-${{ matrix.target }}.${{ matrix.ext }}" --dir "$RUNNER_TEMP/host" --clobber
+          cd "$RUNNER_TEMP/host"
+          if [ "${{ matrix.ext }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
+          echo "$RUNNER_TEMP/host" >> "$GITHUB_PATH"
+
+      - name: Load the published package in the real host
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          rpi --version
+          rpi install rpi-adhd --github "$GITHUB_REPOSITORY" --version "$VERSION" --force
+          printf '{"id":"1","type":"execute_command","command":"adhd","args":"status"}\n' > cmd.jsonl
+          rpi --mode rpc --approve < cmd.jsonl 2>&1 | tee smoke.log
+          grep -q 'ADHD mode' smoke.log
+
+  manifest:
+    needs: smoke
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +125,7 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
           mkdir -p staged
-          # curl, not gh release download: that command 500s on these large assets.
+          # curl, not gh release download: that command 500s on these assets.
           for f in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[].name | select(endswith(".tar.gz"))'); do
             curl -sSLf -o "staged/$f" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$f"
           done
@@ -97,4 +141,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
         run: gh release upload "$TAG" staged/rpi-extension.json --repo "$GITHUB_REPOSITORY" --clobber
-
