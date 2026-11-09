@@ -67,8 +67,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-22.04,     target: x86_64-unknown-linux-gnu, ext: tar.gz }
-          - { runner: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, ext: tar.gz }
+          - { runner: ubuntu-24.04,     target: x86_64-unknown-linux-gnu, ext: tar.gz }
+          - { runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, ext: tar.gz }
           - { runner: windows-2022,     target: x86_64-pc-windows-msvc, ext: zip }
           - { runner: macos-15-intel,   target: x86_64-apple-darwin, ext: tar.gz }
           - { runner: macos-latest,     target: aarch64-apple-darwin, ext: tar.gz }
@@ -76,26 +76,32 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-
       - name: Install the rpi host
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # ubuntu-24.04: the published rpi needs GLIBC_2.39.
           mkdir -p "$RUNNER_TEMP/host"
-          gh release download "$RPI_TAG" --repo "$RPI_REPO" \
-            --pattern "rpi-$RPI_TAG-${{ matrix.target }}.${{ matrix.ext }}" --dir "$RUNNER_TEMP/host" --clobber
+          gh release download "$RPI_TAG" --repo "$RPI_REPO" --pattern "rpi-$RPI_TAG-${{ matrix.target }}.${{ matrix.ext }}" --dir "$RUNNER_TEMP/host" --clobber
           cd "$RUNNER_TEMP/host"
           if [ "${{ matrix.ext }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
           echo "$RUNNER_TEMP/host" >> "$GITHUB_PATH"
 
-      - name: Load the published package in the real host
+      - name: Load the published library in the real host
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')"
+          tag="rpi-adhd-v$version"
+          ext_dir="$HOME/.rpi/agent/extensions"
+          mkdir -p "$ext_dir" "$RUNNER_TEMP/pkg"
+          # Smoke the bytes users get, before the manifest exists: load the archive's library directly.
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "rpi-adhd-$version-${{ matrix.target }}.*" --dir "$RUNNER_TEMP/pkg" --clobber
+          cd "$RUNNER_TEMP/pkg"
+          if [ "${{ matrix.ext }}" = zip ]; then unzip -oq *.zip; else tar -xzf *.tar.gz; fi
+          cp ./*.so ./*.dylib ./*.dll "$ext_dir/" 2>/dev/null || true
+          ls "$ext_dir"
           rpi --version
-          rpi install rpi-adhd --github "$GITHUB_REPOSITORY" --version "$VERSION" --force
           printf '{"id":"1","type":"execute_command","command":"adhd","args":"status"}\n' > cmd.jsonl
           rpi --mode rpc --approve < cmd.jsonl 2>&1 | tee smoke.log
           grep -q 'ADHD mode' smoke.log
